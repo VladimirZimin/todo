@@ -1,25 +1,138 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { Component } from 'react';
+import { nanoid } from 'nanoid';
+import Container from './components/Container';
+import TodoList from './components/TodoList';
+import TodoEditor from './components/TodoEditor';
+import Filter from './components/TodoFilter';
+import Modal from './components/Modal';
+import IconButton from './components/IconButton';
+import { ReactComponent as AddIcon } from './icons/add.svg';
+import initialTodos from './todos.json';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+class App extends Component {
+  state = {
+    todos: initialTodos,
+    filter: '',
+    showModal: false,
+  };
+
+  componentDidMount() {
+    // console.log('App componentDidMount');
+
+    const todos = localStorage.getItem('todos');
+    const parsedTodos = JSON.parse(todos);
+
+    if (parsedTodos) {
+      this.setState({ todos: parsedTodos });
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    // console.log('App componentDidUpdate');
+
+    const nextTodos = this.state.todos;
+    const prevTodos = prevState.todos;
+
+    if (nextTodos !== prevTodos) {
+      console.log('Обновилось поле todos, записываю todos в хранилище');
+      localStorage.setItem('todos', JSON.stringify(nextTodos));
+    }
+
+    if (nextTodos.length > prevTodos.length && prevTodos.length !== 0) {
+      this.toggleModal();
+    }
+  }
+
+  addTodo = text => {
+    const todo = {
+      id: nanoid(),
+      text,
+      completed: false,
+    };
+
+    this.setState(({ todos }) => ({
+      todos: [todo, ...todos],
+    }));
+
+    // this.toggleModal();
+  };
+
+  deleteTodo = todoId => {
+    this.setState(({ todos }) => ({
+      todos: todos.filter(({ id }) => id !== todoId),
+    }));
+  };
+
+  toggleCompleted = todoId => {
+    this.setState(({ todos }) => ({
+      todos: todos.map(todo =>
+        todo.id === todoId ? { ...todo, completed: !todo.completed } : todo,
+      ),
+    }));
+  };
+
+  changeFilter = e => {
+    this.setState({ filter: e.currentTarget.value });
+  };
+
+  getVisibleTodos = () => {
+    const { filter, todos } = this.state;
+    const normalizedFilter = filter.toLowerCase();
+
+    return todos.filter(({ text }) =>
+      text.toLowerCase().includes(normalizedFilter),
+    );
+  };
+
+  calculateCompletedTodos = () => {
+    const { todos } = this.state;
+
+    return todos.reduce(
+      (total, todo) => (todo.completed ? total + 1 : total),
+      0,
+    );
+  };
+
+  toggleModal = () => {
+    this.setState(({ showModal }) => ({
+      showModal: !showModal,
+    }));
+  };
+
+  render() {
+    const { todos, filter, showModal } = this.state;
+    const totalTodoCount = todos.length;
+    const completedTodoCount = this.calculateCompletedTodos();
+    const visibleTodos = this.getVisibleTodos();
+
+    return (
+      <Container>
+        <IconButton onClick={this.toggleModal} aria-label="Добавить todo">
+          <AddIcon width="40" height="40" fill="#fff" />
+        </IconButton>
+
+        {showModal && (
+          <Modal onClose={this.toggleModal}>
+            <TodoEditor onSubmit={this.addTodo} />
+          </Modal>
+        )}
+
+        {/* TODO: вынести в отдельный компонент */}
+        <div>
+          <p>Всего заметок: {totalTodoCount}</p>
+          <p>Выполнено: {completedTodoCount}</p>
+        </div>
+
+        <Filter value={filter} onChange={this.changeFilter} />
+
+        <TodoList
+          todos={visibleTodos}
+          onDeleteTodo={this.deleteTodo}
+          onToggleCompleted={this.toggleCompleted}
+        />
+      </Container>
+    );
+  }
 }
 
 export default App;
